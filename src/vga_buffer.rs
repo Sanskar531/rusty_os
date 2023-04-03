@@ -25,10 +25,10 @@ pub enum Color {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
-struct ColorCode(u8);
+pub struct ColorCode(u8);
 
 impl ColorCode {
-    fn new(foreground: Color, background: Color) -> ColorCode {
+    pub fn new(foreground: Color, background: Color) -> ColorCode {
         // Shift bits to the left by 4 and then or it on the foreground
         // hence completing the second 8 bytes of data for the color codes.
         ColorCode((background as u8) << 4 | (foreground as u8))
@@ -37,41 +37,55 @@ impl ColorCode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-struct ScreenChar{
+struct ScreenChar {
     ascii_char: u8,
-    color_code: ColorCode
+    color_code: ColorCode,
 }
 
-// Is represented as chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT] 
+// Is represented as chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT]
 // in memory instead of type Buffer
 #[repr(transparent)]
-struct Buffer{
-    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT]
+pub struct Buffer {
+    chars: [[ScreenChar; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
-pub struct Writer{
-    coloumn_position: usize,
-    color_code: ColorCode,
+pub struct Writer {
+    pub coloumn_position: usize,
+    pub color_code: ColorCode,
     // is static because we know exactly where the vga address is to write
     // things to display on screen
-    buffer: &'static mut Buffer,
+    pub buffer: &'static mut Buffer,
 }
 
-impl Writer{
-    fn write_byte(&self, byte: u8) -> (){
-        match byte{
+impl Writer {
+    pub fn write_byte(&mut self, byte: u8) -> () {
+        match byte {
             b'\n' => self.new_line(),
             byte => {
-                if self.coloumn_position >= BUFFER_WIDTH{
+                if self.coloumn_position >= BUFFER_WIDTH {
                     self.new_line();
                 }
 
+                let row = BUFFER_HEIGHT - 2;
+                let col = self.coloumn_position;
 
+                self.buffer.chars[row][col] = ScreenChar {
+                    ascii_char: byte,
+                    color_code: self.color_code,
+                };
+                self.coloumn_position += 1;
             }
         }
     }
 
-    fn new_line(&self) -> (){
-    
+    pub fn write_string(&mut self, s: &str){
+        for char in s.bytes() {
+            match char{
+                0x20..=0x7e | b'\n' => self.write_byte(char),
+                _ => self.write_byte(0xfe),
+            }
+        }
     }
+
+    fn new_line(&self) -> () {}
 }
