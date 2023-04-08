@@ -12,17 +12,23 @@ use volatile::Volatile;
 #[macro_export]
 macro_rules! print {
     ($($arg:tt)*) => {
-        let mut lock = WRITER.lock();
-        write!(lock, "{}", format_args!($($arg)*)).unwrap();
-        drop(lock);
-    }
+        $crate::vga_buffer::_print(format_args!($($arg)*));
+    };
+}
+
+pub fn _print(args: ::core::fmt::Arguments){
+    use core::fmt::Write;
+
+    let mut lock = WRITER.lock();
+    lock.write_fmt(args).unwrap();
+    drop(lock);
 }
 
 #[macro_export]
 macro_rules! println {
     ($($arg:tt)*) => {
         print!("{}\n", format_args!($($arg)*));
-    }
+    };
 }
 
 lazy_static! {
@@ -34,7 +40,7 @@ lazy_static! {
     // when it is available.
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         coloumn_position: 0,
-        color_code: ColorCode::new(Color::Black, Color::Blue),
+        color_code: ColorCode::new(Color::White, Color::Black),
         // Buffer is represented in memory as a transparent data structure
         // Hence, in our case here in 0xb8000 it acts like an array
         // and arrays are represented by its first memory address which
@@ -43,8 +49,8 @@ lazy_static! {
     });
 }
 
-const BUFFER_HEIGHT: usize = 25;
-const BUFFER_WIDTH: usize = 80;
+pub const BUFFER_HEIGHT: usize = 25;
+pub const BUFFER_WIDTH: usize = 80;
 
 impl fmt::Write for Writer {
     fn write_str(&mut self, s: &str) -> fmt::Result {
@@ -89,8 +95,8 @@ impl ColorCode {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-struct ScreenChar {
-    ascii_char: u8,
+pub struct ScreenChar {
+    pub ascii_char: u8,
     color_code: ColorCode,
 }
 
@@ -99,7 +105,7 @@ struct ScreenChar {
 // the vga display buffer
 #[repr(transparent)]
 pub struct Buffer {
-    chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
+    pub chars: [[Volatile<ScreenChar>; BUFFER_WIDTH]; BUFFER_HEIGHT],
 }
 
 pub struct Writer {
